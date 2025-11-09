@@ -1,7 +1,9 @@
+// app/upload/page.tsx
 "use client";
 
 import React, { useState } from "react";
-import { useRemixHub } from "@/hooks/useRemixHub"; // we built this earlier
+import { useRemixHub } from "@/hooks/useRemixHub";
+import { keccak256, stringToBytes } from "viem"; // stringToBytes is the correct viem function
 
 export default function UploadDesignPage() {
   const [figmaUrl, setFigmaUrl] = useState("");
@@ -9,35 +11,34 @@ export default function UploadDesignPage() {
   const [title, setTitle] = useState("");
   const [previewUrl, setPreviewUrl] = useState("");
   const [loading, setLoading] = useState(false);
+  const [message, setMessage] = useState("");
 
-  const { registerOriginal, isPending, txReceipt } = useRemixHub();
+  const { registerOriginal, txHash, txReceipt, isPending } = useRemixHub();
 
-  async function handleSubmit(e: any) {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setLoading(true);
+    setMessage("Uploading to IPFS...");
 
     try {
-      console.log("📦 Uploading metadata to IPFS...");
-
-      // --- 1️⃣ Upload to IPFS ---
+      // --- 1. Upload to IPFS ---
       const formData = new FormData();
       formData.append("title", title);
       formData.append("figmaUrl", figmaUrl);
       if (file) formData.append("file", file);
       formData.append("previewUrl", previewUrl);
 
-      const uploadRes = await fetch("/api/ipfs/upload", {
-        method: "POST",
-        body: formData
-      });
-
+      const uploadRes = await fetch("/api/ipfs/upload", { method: "POST", body: formData });
       const uploadData = await uploadRes.json();
-      const cid = uploadData.cid;
+      if (!uploadRes.ok || !uploadData?.cid) {
+        throw new Error(uploadData?.error || "IPFS upload failed");
+      }
+      const cid = uploadData.cid as string;
+      console.log("Uploaded to IPFS:", cid);
 
-      console.log("✅ IPFS CID:", cid);
+      setMessage("Registering with Story Protocol...");
 
-      // --- 2️⃣ Register on Story ---
-      console.log("🧾 Registering with Story Protocol...");
+      // --- 2. Register on Story ---
       const storyRes = await fetch("/api/story/register", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -45,25 +46,34 @@ export default function UploadDesignPage() {
       });
 
       const storyData = await storyRes.json();
-      if (!storyData.success) throw new Error("Story registration failed");
+      if (!storyRes.ok || !storyData.success) {
+        throw new Error(storyData?.error || "Story registration failed");
+      }
 
-      const cidHash = storyData.cidHash as `0x${string}`;
+      const ipId = storyData.ipId;
+      if (!ipId) throw new Error("Missing ipId from Story");
 
-      console.log("✅ Story registered | CID Hash:", cidHash);
+      // --- 3. Compute cidHash locally (RemixHub format) ---
+      const cidHash = keccak256(stringToBytes(cid)) as `0x${string}`;
+      console.log("CID Hash:", cidHash);
 
-      // --- 3️⃣ Call RemixHub → registerOriginal ---
-      console.log("⚙️ Calling RemixHub.registerOriginal...");
-      const ipId = BigInt(0);        // placeholder, SDK gives later
-      const presetId = 1;            // default
-      registerOriginal(ipId, cidHash, presetId);
+      // Persist CID → Hash mapping
+      localStorage.setItem(cidHash, cid);
 
-      alert("✅ Design registered successfully on IPFS + Story + RemixHub!");
+      setMessage("Anchoring in RemixHub contract...");
+
+      // --- 4. Register in RemixHub ---
+      const ipIdBigInt = BigInt(ipId);
+      const presetId = 1;
+      await registerOriginal(ipIdBigInt, cidHash, presetId); // AWAIT!
+
+      setMessage("All done! Transaction submitted.");
     } catch (err: any) {
-      console.error(err);
-      alert("❌ Error: " + err.message);
+      console.error("Upload flow error:", err);
+      setMessage("Error: " + err.message);
+    } finally {
+      setLoading(false);
     }
-
-    setLoading(false);
   }
 
   return (
@@ -86,7 +96,7 @@ export default function UploadDesignPage() {
           onChange={(e) => setFigmaUrl(e.target.value)}
         />
 
-        <p className="text-center text-gray-500">or upload .fig file</p>
+        <p className="text-center text-gray-500 text-sm">or upload .fig file</p>
 
         <input
           type="file"
@@ -102,16 +112,24 @@ export default function UploadDesignPage() {
         />
 
         <button
-          className="bg-blue-600 text-white px-4 py-2 rounded w-full"
+          className="bg-blue-600 text-white px-4 py-2 rounded w-full disabled:opacity-50"
           type="submit"
           disabled={loading || isPending}
         >
           {loading || isPending ? "Processing..." : "Upload & Register"}
         </button>
 
-        {txReceipt && (
+        {message && <p className="text-sm mt-2">{message}</p>}
+
+        {txHash && (
+          <p className="text-xs text-gray-500">
+            Tx submitted: {txHash.slice(0, 10)}…{txHash.slice(-6)}
+          </p>
+        )}
+
+        {txReceipt?.data?.transactionHash && (
           <p className="text-green-600 text-sm mt-2">
-            ✅ On-chain registered: {JSON.stringify(txReceipt.data)}
+            Completed! Tx: {txReceipt.data.transactionHash}
           </p>
         )}
       </form>

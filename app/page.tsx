@@ -1,3 +1,4 @@
+'use client';
 import Link from "next/link";
 import ConnectWallet from "@/components/ConnectWallet";
 import { useAccount } from "wagmi";
@@ -15,8 +16,8 @@ export default function Home() {
       <div className="max-w-2xl mx-auto text-center space-y-6">
         <h2 className="text-3xl font-bold ">Own, Remix & Earn from Figma Designs</h2>
         <p className="text-gray-600">
-          Publish your UI designs as on-chain IP assets.  
-          Enable remix collaboration. Split revenue automatically.  
+          Publish your UI designs as on-chain IP assets.
+          Enable remix collaboration. Split revenue automatically.
         </p>
 
         <div className="flex flex-col md:flex-row justify-center gap-4 mt-8">

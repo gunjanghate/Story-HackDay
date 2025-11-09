@@ -1,20 +1,31 @@
+// app/api/story/register/route.ts
 import { NextResponse } from "next/server";
 import { registerIpOnStory } from "@/lib/story";
 
 export async function POST(req: Request) {
   try {
-    const { cid } = await req.json();
-    if (!cid) throw new Error("CID required");
+    const { cid, title } = await req.json();
 
-    const { tx, contentHash } = await registerIpOnStory(cid);
+    if (!cid || typeof cid !== "string" || !cid.startsWith("Qm")) {
+      return NextResponse.json(
+        { success: false, error: "Valid IPFS CID required" },
+        { status: 400 }
+      );
+    }
+
+    const { ipId, txHash } = await registerIpOnStory(cid, title);
 
     return NextResponse.json({
       success: true,
-      tx,
-      cidHash: contentHash
+      ipId,
+      txHash,
+      explorer: `https://aeneid.storyscan.io/ip/${ipId}`,
     });
   } catch (err: any) {
-    console.error("Story error:", err);
-    return NextResponse.json({ error: err.message }, { status: 500 });
+    console.error("Story registration error:", err);
+    return NextResponse.json(
+      { success: false, error: err.message || "Failed to register IP" },
+      { status: 500 }
+    );
   }
 }
