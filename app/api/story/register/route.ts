@@ -1,4 +1,3 @@
-// app/api/story/register/route.ts
 import { NextResponse } from "next/server";
 import { registerIpOnStory } from "@/lib/story";
 
@@ -13,7 +12,7 @@ export async function POST(req: Request) {
       );
     }
 
-    const { ipId, txHash } = await registerIpOnStory(cid, title);
+    const { ipId, txHash } = await registerIpOnStory(cid);
 
     return NextResponse.json({
       success: true,
