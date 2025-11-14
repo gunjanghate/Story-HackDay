@@ -1,4 +1,3 @@
-// app/api/designs/list/route.ts
 import { NextResponse } from "next/server";
 import { ethers } from "ethers";
 import { remixHubAbi } from "@/lib/remixHubAbi";
@@ -42,10 +41,10 @@ export async function GET() {
         transactionIndex: String((l as any).transactionIndex ?? "0"),
         transactionHash: l.transactionHash,
         args: {
-          ipId: parsedLog.args.ipId !== undefined && parsedLog.args.ipId !== null ? String(parsedLog.args.ipId) : null,
-          owner: parsedLog.args.owner ?? null,
-          presetId: parsedLog.args.presetId !== undefined && parsedLog.args.presetId !== null ? Number(parsedLog.args.presetId) : null,
-          cidHash: parsedLog.args.cidHash ?? null,
+          ipId: parsedLog?.args.ipId !== undefined && parsedLog?.args.ipId !== null ? String(parsedLog?.args.ipId) : null,
+          owner: parsedLog?.args.owner ?? null,
+          presetId: parsedLog?.args.presetId !== undefined && parsedLog?.args.presetId !== null ? Number(parsedLog?.args.presetId) : null,
+          cidHash: parsedLog?.args.cidHash ?? null,
         },
       };
     });

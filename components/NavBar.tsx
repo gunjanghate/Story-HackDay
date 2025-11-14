@@ -36,7 +36,7 @@ export default function NavBar() {
         try {
           const f = findEthAddress(obj[k]);
           if (f) return f;
-        } catch {}
+        } catch { }
       }
     }
     return null;
@@ -106,13 +106,7 @@ export default function NavBar() {
   }, []);
 
   return (
-    <nav
-      className="fixed top-0 left-0 right-0 z-50 flex items-center justify-between px-6 py-4"
-      style={{
-        background: "linear-gradient(180deg, rgba(233,246,255,0.92) 0%, rgba(129,206,255,0.92) 100%)",
-        backdropFilter: "blur(8px)",
-      }}
-    >
+    <nav className="fixed backdrop-blur-2xl top-0 left-0 right-0 z-50 flex items-center justify-between px-6 py-4 border-b border-black/10">
       <div className="flex items-center gap-2">
         <Link href="/" className="flex items-center gap-2">
           <span className="text-4xl font-sans font-bold text-black">FigMint</span>
@@ -126,17 +120,10 @@ export default function NavBar() {
           <div className="relative">
             <button
               ref={btnRef}
-              onClick={() => {
-                setMenuOpen((s) => !s);
-                const rect = btnRef.current?.getBoundingClientRect();
-                if (rect) setPortalPos({ top: rect.bottom + 8, left: rect.right - 200 });
-              }}
+              onClick={() => setMenuOpen((s) => !s)}
               className="flex items-center gap-3 rounded-full px-3 py-1 bg-white/70 border border-black/10"
             >
-              <div
-                className="h-8 w-8 rounded-full flex items-center justify-center text-xs font-medium text-white"
-                style={{ background: "linear-gradient(135deg,#6366F1 0%,#EC4899 100%)" }}
-              >
+              <div className="h-8 w-8 rounded-full flex items-center justify-center text-xs font-medium text-white bg-gradient-to-br from-indigo-500 to-blue-500">
                 {shortAddr ? shortAddr.slice(2, 4).toUpperCase() : "U"}
               </div>
 
@@ -146,35 +133,28 @@ export default function NavBar() {
               </div>
             </button>
 
-            {menuOpen && typeof document !== "undefined" &&
-              createPortal(
-                <div
-                  style={{
-                    position: "fixed",
-                    top: portalPos?.top ?? 72,
-                    left: Math.max(8, portalPos?.left ?? (window.innerWidth - 280)),
-                    zIndex: 9999,
-                  }}
-                  className="w-72 rounded-xl bg-white shadow-xl border border-black/10 p-4 animate-fade-in"
-                >
-                  <div className="text-xs font-semibold text-gray-700 mb-1">Connected Wallet</div>
-                  <div className="text-sm font-mono break-all mb-2 text-gray-900">{effectiveAddress}</div>
+            {menuOpen && (
+              <div className="absolute right-0 mt-2 w-72 rounded-xl bg-white shadow-xl border border-black/10 p-4 animate-fade-in z-50">
+                <div className="text-xs font-semibold text-gray-700 mb-1">Connected Wallet</div>
+                <div className="text-sm font-mono break-all mb-2 text-gray-900">
+                  {effectiveAddress ? `${effectiveAddress.slice(0, 6)}...${effectiveAddress.slice(-3)}` : "—"}
+                </div>
 
-                  <div className="text-xs font-semibold text-gray-700 mb-1">ETH Balance</div>
-                  <div className="text-sm font-medium mb-3 text-black">{balance ? `${Number(balance).toFixed(4)} ETH` : "—"}</div>
+                <div className="text-xs font-semibold text-gray-700 mb-1">ETH Balance</div>
+                <div className="text-sm font-medium mb-3 text-black">
+                  {balance ? `${Number(balance).toFixed(4)} IP` : "—"}
+                </div>
 
-                  <div className="flex gap-2 mb-3">
-                    <button
-                      onClick={handleLogout}
-                      className="flex-1 text-sm bg-red-600 text-white py-2 rounded-lg hover:bg-red-700 transition"
-                    >
-                      Logout
-                    </button>
-                  </div>
-                </div>,
-                document.body
-              )}
-
+                <div className="flex gap-2 mb-3">
+                  <button
+                    onClick={handleLogout}
+                    className="flex-1 text-sm bg-blue-600 text-white py-2 rounded-lg hover:bg-red-700 transition"
+                  >
+                    Logout
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         )}
       </div>
