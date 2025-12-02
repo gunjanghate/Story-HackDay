@@ -88,7 +88,14 @@ export default function NavBar() {
   async function handleLogout() {
     try {
       await logout?.();
+      // Close menu then reload to clear any residual Privy state across the app
       setMenuOpen(false);
+      try {
+        window.location.reload();
+        return;
+      } catch (e) {
+        console.warn("Forced reload after logout failed", e);
+      }
     } catch (e) {
       console.error("Privy logout failed", e);
     }
@@ -127,6 +134,7 @@ export default function NavBar() {
           <div className="relative">
             <button
               ref={btnRef}
+              type="button"
               onClick={() => setMenuOpen((s) => !s)}
               className="flex items-center gap-3 rounded-full px-3 py-1 bg-white/70 border border-black/10"
             >
@@ -154,7 +162,11 @@ export default function NavBar() {
 
                 <div className="flex gap-2 mb-3">
                   <button
-                    onClick={handleLogout}
+                    type="button"
+                    onClick={() => {
+                      console.debug("NavBar: logout button clicked");
+                      handleLogout();
+                    }}
                     className="flex-1 text-sm bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700 transition"
                   >
                     Logout

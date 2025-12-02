@@ -55,12 +55,27 @@ export default function RemixScreen({ cid }: { cid: string }) {
                     anchorTxHash: null,
                 };
                 // Call anchor endpoint to upsert mapping; when chain registration completes server anchor can be updated later
-                await fetch("/api/story/anchor", {
+                const anchorRes = await fetch("/api/story/anchor", {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify(payload),
                 });
-                console.log("[REMIX] Stage 3: Persisted remix cidHash→cid mapping server-side", { cidHash });
+
+                if (!anchorRes.ok) {
+                    let bodyText: string;
+                    try {
+                        bodyText = await anchorRes.text();
+                    } catch (readErr) {
+                        bodyText = `<unable to read response body: ${String(readErr)}>`;
+                    }
+                    console.warn("[REMIX] Stage 3: Anchor API returned error", {
+                        status: anchorRes.status,
+                        statusText: anchorRes.statusText,
+                        body: bodyText,
+                    });
+                } else {
+                    console.log("[REMIX] Stage 3: Persisted remix cidHash→cid mapping server-side", { cidHash });
+                }
             } catch (e) {
                 console.warn("[REMIX] Stage 3: Failed to persist cidHash mapping server-side", e);
             }

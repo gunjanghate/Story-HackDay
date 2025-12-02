@@ -10,13 +10,23 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "cidHashes required" }, { status: 400 });
     }
 
+    const MAX_HASHES = 200;
+    if (cidHashes.length > MAX_HASHES) {
+      return NextResponse.json(
+        { error: `Too many cidHashes requested (max ${MAX_HASHES})` },
+        { status: 400 }
+      );
+    }
+
     await connectToDB();
 
     const normalized = cidHashes.map((c) => String(c).toLowerCase());
-    const recs = await StoryRegistration.find({ cidHash: { $in: normalized } }).lean();
+    // Deduplicate to avoid unnecessarily large queries for duplicate hashes
+    const unique = Array.from(new Set(normalized));
+    const recs = await StoryRegistration.find({ cidHash: { $in: unique } }).lean();
 
     const map: Record<string, any> = {};
-    for (const c of normalized) map[c] = null;
+    for (const c of unique) map[c] = null;
     for (const r of recs) {
       if (r.cidHash) map[String(r.cidHash).toLowerCase()] = {
         cid: r.cid,

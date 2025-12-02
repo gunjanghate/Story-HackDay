@@ -30,7 +30,7 @@ export async function POST(req: Request) {
     // Upsert: create if missing, or update existing registration
     const doc = await StoryRegistration.findOneAndUpdate(
       { cid },
-      { $set: update, $setOnInsert: { createdAt: new Date() } },
+      { $set: update },
       { upsert: true, new: true }
     ).lean();
 

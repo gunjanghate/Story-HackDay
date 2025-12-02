@@ -30,11 +30,13 @@ export default function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
         <Providers>
-          {/* Global navbar available on all pages (fixed) */}
-          <NavBar />
-          {/* spacer matching navbar height so page content doesn't sit under it */}
-         
-          {children}
+          <div>
+            {/* Global navbar available on all pages (fixed) */}
+            <NavBar />
+            {/* spacer matching navbar height so page content doesn't sit under it */}
+
+            {children}
+          </div>
         </Providers>
       </body>
     </html>
