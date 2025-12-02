@@ -11,7 +11,7 @@ export default function DesignView({ cid }: { cid: string }) {
 
     const [ipId, setIpId] = useState<string | null>(null);
     const [remixCount, setRemixCount] = useState<number>(0);
-    const [derivatives, setDerivatives] = useState<Array<{ cid: string; title: string; ipId?: string | null }>>([]);
+    const [derivatives, setDerivatives] = useState<Array<{ cid: string | null; title: string; ipId?: string | null }>>([]);
 
     useEffect(() => {
         if (!cid) return;
@@ -28,12 +28,8 @@ export default function DesignView({ cid }: { cid: string }) {
                 setLoading(false);
             }
 
-            // 🔹 Load local remix count
-            try {
-                const key = `remix-count:${cid}`;
-                const count = Number(localStorage.getItem(key) || "0");
-                setRemixCount(count);
-            } catch { }
+            // 🔹 Initialize remix count (will be derived from derivatives below)
+            setRemixCount(0);
 
             // 🔹 Get on-chain IP ID for explorer link
             try {
@@ -48,28 +44,63 @@ export default function DesignView({ cid }: { cid: string }) {
                 const res = await fetch(`/api/story/derivatives?parentCid=${cid}`);
                 if (res.ok) {
                     const entries: any[] = await res.json();
-                    const items: Array<{ cid: string; title: string; ipId?: string | null }> = [];
+                    const items: Array<{ cid: string | null; title: string; ipId?: string | null }> = [];
+                    // collect childCidHashes to resolve them in batch from server DB
+                    const childHashes: string[] = [];
+                    for (const entry of entries) {
+                        const childCidHash = entry?.args?.childCidHash || null;
+                        if (childCidHash) childHashes.push(String(childCidHash).toLowerCase());
+                    }
+
+                    let mapping: Record<string, any> = {};
+                    if (childHashes.length) {
+                        try {
+                            const uniq = Array.from(new Set(childHashes));
+                            const mapRes = await fetch(`/api/story/lookup/batch`, {
+                                method: "POST",
+                                headers: { "Content-Type": "application/json" },
+                                body: JSON.stringify({ cidHashes: uniq }),
+                            });
+                            if (mapRes.ok) {
+                                const md = await mapRes.json();
+                                mapping = md?.map ?? {};
+                            } else {
+                                console.warn("DesignView: batch lookup failed", await mapRes.text());
+                            }
+                        } catch (e) {
+                            console.warn("DesignView: batch lookup error", e);
+                        }
+                    }
+
                     for (const entry of entries) {
                         const childIpId = entry?.args?.childIpId || null;
                         const childCidHash = entry?.args?.childCidHash || null;
                         let childCid: string | null = null;
-                        if (childCidHash && typeof localStorage !== "undefined") {
-                            childCid = localStorage.getItem(childCidHash);
+                        if (childCidHash) {
+                            const rec = mapping[String(childCidHash).toLowerCase()] ?? null;
+                            if (rec && rec.cid) childCid = rec.cid;
                         }
+
                         if (childCid) {
                             try {
-                                const mRes = await fetch(`/api/ipfs/get?cid=${childCid}`);
+                                const mRes = await fetch(`/api/ipfs/get?cid=${encodeURIComponent(childCid)}`);
                                 if (mRes.ok) {
                                     const m = await mRes.json();
                                     items.push({ cid: childCid, title: m?.title ?? "Untitled", ipId: childIpId });
+                                } else {
+                                    items.push({ cid: childCid, title: "Untitled", ipId: childIpId });
                                 }
-                            } catch { items.push({ cid: childCid, title: "Untitled", ipId: childIpId }); }
+                            } catch {
+                                items.push({ cid: childCid, title: "Untitled", ipId: childIpId });
+                            }
                         } else {
-                            // No CID yet; still present entry with StoryScan link only
-                            items.push({ cid: childCid || `childIpId:${childIpId}`, title: "Derivative", ipId: childIpId });
+                            // No CID available in DB; still show an entry with StoryScan link
+                            items.push({ cid: null, title: "Derivative", ipId: childIpId });
                         }
                     }
                     setDerivatives(items);
+                    // set remix count based on derivatives we found
+                    setRemixCount(items.length);
                 }
             } catch (e) {
                 console.warn("Derivatives fetch failed", e);
@@ -248,13 +279,17 @@ export default function DesignView({ cid }: { cid: string }) {
                                     <p className="text-sm text-gray-600">No derivatives published yet.</p>
                                 ) : (
                                     <ul className="space-y-2">
-                                        {derivatives.map((d) => (
-                                            <li key={d.cid} className="flex items-center justify-between rounded-lg border border-gray-200 bg-white/70 px-3 py-2">
+                                        {derivatives.map((d, idx) => (
+                                            <li key={`${d.cid ?? 'missing'}-${idx}`} className="flex items-center justify-between rounded-lg border border-gray-200 bg-white/70 px-3 py-2">
                                                 <div className="min-w-0">
-                                                    <a href={`/design/${d.cid}`} className="text-sm font-medium text-gray-900 truncate underline">
-                                                        {d.title}
-                                                    </a>
-                                                    <div className="text-xs text-gray-600 break-all">CID: {d.cid}</div>
+                                                    {d.cid ? (
+                                                        <a href={`/design/${d.cid}`} className="text-sm font-medium text-gray-900 truncate underline">
+                                                            {d.title}
+                                                        </a>
+                                                    ) : (
+                                                        <div className="text-sm font-medium text-gray-900 truncate">{d.title}</div>
+                                                    )}
+                                                    <div className="text-xs text-gray-600 break-all">CID: {d.cid ?? (d.ipId ? `childIpId:${d.ipId}` : '—')}</div>
                                                 </div>
                                                 <div className="flex items-center gap-3">
                                                     {d.ipId && (
@@ -268,15 +303,19 @@ export default function DesignView({ cid }: { cid: string }) {
                                                             StoryScan
                                                         </a>
                                                     )}
-                                                    <a
-                                                        href={`https://ipfs.io/ipfs/${d.cid}`}
-                                                        target="_blank"
-                                                        rel="noreferrer noopener"
-                                                        className="text-xs text-gray-700 underline"
-                                                        title="Open metadata on IPFS"
-                                                    >
-                                                        IPFS
-                                                    </a>
+                                                    {d.cid ? (
+                                                        <a
+                                                            href={`https://ipfs.io/ipfs/${d.cid}`}
+                                                            target="_blank"
+                                                            rel="noreferrer noopener"
+                                                            className="text-xs text-gray-700 underline"
+                                                            title="Open metadata on IPFS"
+                                                        >
+                                                            IPFS
+                                                        </a>
+                                                    ) : (
+                                                        <span className="text-xs text-gray-500">IPFS</span>
+                                                    )}
                                                 </div>
                                             </li>
                                         ))}

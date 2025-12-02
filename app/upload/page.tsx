@@ -82,15 +82,7 @@ export default function UploadDesignPage() {
             setStoryIpUrlState(storyIpUrl);
             setStoryTxUrlState(storyTxUrl);
             setStoryAddressUrlState(storyAddressUrl);
-            try {
-                localStorage.setItem(
-                    `proof:${cid}`,
-                    JSON.stringify({ ipId, storyIpUrl, storyTxHash: storyData.txHash || null })
-                );
-                console.log("[UPLOAD] Stage 2: Persisted proof to localStorage", { key: `proof:${cid}` });
-            } catch (e) {
-                console.warn("[UPLOAD] Stage 2: Could not persist proof to localStorage", e);
-            }
+
             setMessage(`Registered on Story. Anchoring in RemixHub contract...`);
 
             // --- 3. Compute cidHash locally (RemixHub format) ---
@@ -98,22 +90,37 @@ export default function UploadDesignPage() {
             const cidHash = keccak256(toUtf8Bytes(cid)) as `0x${string}`;
             console.log("[UPLOAD] Stage 3 SUCCESS: cidHash computed", { cidHash });
 
-            // Persist CID → Hash mapping
-            try {
-                localStorage.setItem(cidHash, cid);
-                console.log("[UPLOAD] Stage 3: Persisted cidHash→cid mapping to localStorage");
-            } catch (e) {
-                console.warn("[UPLOAD] Stage 3: Could not persist cidHash mapping", e);
-            }
-
-            // keep message as above with story link while anchoring
-
             // --- 4. Register in RemixHub ---
             const ipIdBigInt = BigInt(ipId);
             const presetId = 1;
             console.log("[UPLOAD] Stage 4: Anchoring in RemixHub", { ipId: ipIdBigInt.toString(), cidHash, presetId });
             await registerOriginal(ipIdBigInt, cidHash, presetId);
             console.log("[UPLOAD] Stage 4 SUCCESS: RemixHub anchoring tx dispatched");
+
+            // --- 5. Persist final anchor information to server-side MongoDB ---
+            try {
+                const anchorTx = txReceipt?.data?.transactionHash || txHash || null;
+                const payload = {
+                    cid,
+                    ipId,
+                    cidHash: (cidHash as string).toLowerCase(),
+                    anchorTxHash: anchorTx,
+                };
+                console.log("[UPLOAD] Persisting anchor to server", payload);
+                const persistRes = await fetch("/api/story/anchor", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify(payload),
+                });
+                const persistData = await persistRes.json();
+                if (!persistRes.ok || !persistData?.success) {
+                    console.warn("[UPLOAD] Server anchor persist failed", persistData);
+                } else {
+                    console.log("[UPLOAD] Server anchor persisted", persistData);
+                }
+            } catch (e) {
+                console.warn("[UPLOAD] Error persisting anchor to server", e);
+            }
 
             setMessage("All done! See on-chain proof and transaction details below.");
         } catch (err: any) {

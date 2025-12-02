@@ -37,33 +37,74 @@ export default function ExplorePage() {
 
             const items: Design[] = [];
 
+            // collect all cidHashes from logs and request DB mapping in a single call
+            const cidHashes: string[] = [];
+            const logMetadata: Array<{
+                cidHash: string | null;
+                owner: string;
+                ipId: string | null;
+                transactionHash: string;
+                blockHash: string | null;
+                blockNumber: string;
+            }> = [];
+
             for (const log of logs) {
-                const cidHash = log.args.cidHash as `0x${string}`;
+                const cidHash = log.args.cidHash as `0x${string}` | null;
                 const owner = log.args.owner as string;
                 const ipId = log.args.ipId ? String(log.args.ipId) : null;
                 const transactionHash = log.transactionHash as string;
                 const blockHash = (log.blockHash ?? null) as string | null;
                 const blockNumber = String(log.blockNumber ?? "0");
 
-                // ---- Retrieve CID that was stored in localStorage during upload ----
-                const cid = localStorage.getItem(cidHash);
-                if (!cid) continue; // no local mapping → skip
+                if (cidHash) cidHashes.push(String(cidHash).toLowerCase());
+                logMetadata.push({ cidHash: cidHash ? String(cidHash).toLowerCase() : null, owner, ipId, transactionHash, blockHash, blockNumber });
+            }
 
-                // ---- Pull the JSON metadata from Pinata (or any IPFS gateway) ----
-                const metaRes = await fetch(`/api/ipfs/get?cid=${cid}`);
-                if (!metaRes.ok) continue;
-                const meta = await metaRes.json();
+            let mapping: Record<string, any> = {};
+            if (cidHashes.length) {
+                const uniq = Array.from(new Set(cidHashes));
+                try {
+                    const mapRes = await fetch(`/api/story/lookup/batch`, {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ cidHashes: uniq }),
+                    });
+                    if (mapRes.ok) {
+                        const md = await mapRes.json();
+                        mapping = md?.map ?? {};
+                    } else {
+                        console.warn("Explore: batch lookup failed", await mapRes.text());
+                    }
+                } catch (e) {
+                    console.warn("Explore: batch lookup error", e);
+                }
+            }
 
-                items.push({
-                    cid,
-                    title: meta?.title ?? "Untitled",
-                    preview: meta?.preview ?? null,
-                    owner,
-                    ipId,
-                    transactionHash,
-                    blockHash,
-                    blockNumber,
-                });
+            for (const metaLog of logMetadata) {
+                const cidHash = metaLog.cidHash;
+                if (!cidHash) continue;
+                const rec = mapping[cidHash] ?? null;
+                if (!rec || !rec.cid) continue;
+
+                try {
+                    const metaRes = await fetch(`/api/ipfs/get?cid=${encodeURIComponent(rec.cid)}`);
+                    if (!metaRes.ok) continue;
+                    const meta = await metaRes.json();
+
+                    items.push({
+                        cid: rec.cid,
+                        title: meta?.title ?? (rec.title ?? "Untitled"),
+                        preview: meta?.preview ?? null,
+                        owner: metaLog.owner,
+                        ipId: rec.ipId ?? metaLog.ipId,
+                        transactionHash: metaLog.transactionHash,
+                        blockHash: metaLog.blockHash,
+                        blockNumber: metaLog.blockNumber,
+                    });
+                } catch (e) {
+                    console.warn("Explore: failed to fetch ipfs metadata for cid", rec.cid, e);
+                    continue;
+                }
             }
 
             setDesigns(items);

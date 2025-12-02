@@ -45,13 +45,24 @@ export default function RemixScreen({ cid }: { cid: string }) {
             const remixCid = uploadJson.cid as string;
             console.log("[REMIX] Stage 1 SUCCESS: Remix CID from IPFS", { remixCid });
 
-            // Persist CID → Hash mapping for client-side resolution
+            // Persist CID → Hash mapping server-side (MongoDB) so other clients can resolve
             try {
-                const cidHash = keccak256(toUtf8Bytes(remixCid));
-                localStorage.setItem(cidHash, remixCid);
-                console.log("[REMIX] Stage 3: Persisted remix cidHash→cid mapping", { cidHash });
-            } catch {
-                console.warn("[REMIX] Stage 3: Failed to persist cidHash mapping");
+                const cidHash = keccak256(toUtf8Bytes(remixCid)) as `0x${string}`;
+                const payload = {
+                    cid: remixCid,
+                    ipId: null,
+                    cidHash: String(cidHash).toLowerCase(),
+                    anchorTxHash: null,
+                };
+                // Call anchor endpoint to upsert mapping; when chain registration completes server anchor can be updated later
+                await fetch("/api/story/anchor", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify(payload),
+                });
+                console.log("[REMIX] Stage 3: Persisted remix cidHash→cid mapping server-side", { cidHash });
+            } catch (e) {
+                console.warn("[REMIX] Stage 3: Failed to persist cidHash mapping server-side", e);
             }
 
             setMessage("Registering remix on Story Protocol…");
@@ -71,18 +82,29 @@ export default function RemixScreen({ cid }: { cid: string }) {
             }
             console.log("[REMIX] Stage 2 SUCCESS: Derivative registered", { parentIpId: remixJson.parentIpId, newIpId: remixJson.newIpId, txHash: remixJson.txHash });
 
-            // ✅ Optimistic remix UI counter
-            try {
-                const key = `remix-count:${cid}`;
-                const current = Number(localStorage.getItem(key) || "0");
-                localStorage.setItem(key, String(current + 1));
-                console.log("[REMIX] Stage 3: Incremented local remix counter", { key, newCount: current + 1 });
-            } catch {
-                console.warn("[REMIX] Stage 3: Failed to update local remix counter");
-            }
+            // No local optimistic counters — server-side data will drive remix counts in DesignView
 
             const explorerUrl = `https://aeneid.storyscan.io/ip-id/${remixJson.newIpId}`;
             const txUrl = remixJson.txHash ? `https://aeneid.storyscan.io/tx/${remixJson.txHash}` : null;
+
+            // Persist the on-chain registration result (newIpId and txHash) to the server so DB contains mapping for this remix
+            try {
+                const cidHash = keccak256(toUtf8Bytes(remixCid)) as `0x${string}`;
+                const payload = {
+                    cid: remixCid,
+                    ipId: remixJson.newIpId,
+                    cidHash: String(cidHash).toLowerCase(),
+                    anchorTxHash: remixJson.txHash ?? null,
+                };
+                await fetch("/api/story/anchor", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify(payload),
+                });
+                console.log("[REMIX] Persisted remix registration to server", { payload });
+            } catch (e) {
+                console.warn("[REMIX] Failed to persist remix registration to server", e);
+            }
 
             setMessage(
                 `Remix minted on chain.\n\n` +

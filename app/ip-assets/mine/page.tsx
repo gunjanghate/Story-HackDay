@@ -91,32 +91,69 @@ export default function MyIpAssetsPage() {
                 }, 0);
                 setLatestBlock(latest);
 
-                // Build enriched Design objects (same pipeline as ExplorePage)
+
                 const enriched: Design[] = [];
+                const cidHashes: string[] = [];
+                const logMetadata: Array<{
+                    cidHash: string;
+                    owner: string;
+                    ipId: string | null;
+                    transactionHash: string;
+                    blockHash: string | null;
+                }> = [];
+
                 for (const log of mineLogs) {
                     const cidHash = log.args?.cidHash as `0x${string}` | undefined;
                     const owner = log.args?.owner as string;
                     const ipId = log.args?.ipId ? String(log.args.ipId) : null;
                     const transactionHash = log.transactionHash as string;
                     const blockHash = (log.blockHash ?? null) as string | null;
-
                     if (!cidHash) continue;
-                    const cid = localStorage.getItem(cidHash);
-                    if (!cid) continue;
+                    const ch = String(cidHash).toLowerCase();
+                    cidHashes.push(ch);
+                    logMetadata.push({ cidHash: ch, owner, ipId, transactionHash, blockHash });
+                }
 
-                    const metaRes = await fetch(`/api/ipfs/get?cid=${cid}`);
-                    if (!metaRes.ok) continue;
-                    const meta = await metaRes.json();
+                let mapping: Record<string, any> = {};
+                if (cidHashes.length) {
+                    try {
+                        const uniq = Array.from(new Set(cidHashes));
+                        const mapRes = await fetch(`/api/story/lookup/batch`, {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({ cidHashes: uniq }),
+                        });
+                        if (mapRes.ok) {
+                            const md = await mapRes.json();
+                            mapping = md?.map ?? {};
+                        } else {
+                            console.warn("MyIPs: batch lookup failed", await mapRes.text());
+                        }
+                    } catch (e) {
+                        console.warn("MyIPs: batch lookup error", e);
+                    }
+                }
 
-                    enriched.push({
-                        cid,
-                        title: meta?.title ?? "Untitled",
-                        preview: meta?.preview ?? null,
-                        owner,
-                        ipId,
-                        transactionHash,
-                        blockHash,
-                    });
+                for (const metaLog of logMetadata) {
+                    const rec = mapping[metaLog.cidHash] ?? null;
+                    if (!rec || !rec.cid) continue;
+                    try {
+                        const metaRes = await fetch(`/api/ipfs/get?cid=${encodeURIComponent(rec.cid)}`);
+                        if (!metaRes.ok) continue;
+                        const meta = await metaRes.json();
+                        enriched.push({
+                            cid: rec.cid,
+                            title: meta?.title ?? (rec.title ?? "Untitled"),
+                            preview: meta?.preview ?? null,
+                            owner: metaLog.owner,
+                            ipId: rec.ipId ?? metaLog.ipId,
+                            transactionHash: metaLog.transactionHash,
+                            blockHash: metaLog.blockHash,
+                        });
+                    } catch (e) {
+                        console.warn("MyIPs: failed to fetch ipfs metadata for cid", rec?.cid, e);
+                        continue;
+                    }
                 }
 
                 setItems(enriched);
