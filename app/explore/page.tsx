@@ -49,7 +49,7 @@ export default function ExplorePage() {
             }> = [];
 
             for (const log of logs) {
-                const cidHash = log.args.cidHash as `0x${string}` | null;
+                const cidHash = log.args.cidHash as `0x${string}`;
                 const owner = log.args.owner as string;
                 const ipId = log.args.ipId ? String(log.args.ipId) : null;
                 const transactionHash = log.transactionHash as string;
