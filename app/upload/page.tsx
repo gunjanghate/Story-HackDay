@@ -66,6 +66,7 @@ export default function UploadDesignPage() {
             });
 
             const storyData = await storyRes.json();
+            // console.log("[UPLOAD] Stage 2: Story registration response", storyData);
             if (!storyRes.ok || !storyData.success) {
                 console.error("[UPLOAD] Stage 2 ERROR: Story registration failed", storyData);
                 throw new Error(storyData?.error || "Story registration failed");

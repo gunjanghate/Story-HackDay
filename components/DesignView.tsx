@@ -13,6 +13,11 @@ export default function DesignView({ cid }: { cid: string }) {
     const [remixCount, setRemixCount] = useState<number>(0);
     const [derivatives, setDerivatives] = useState<Array<{ cid: string | null; title: string; ipId?: string | null }>>([]);
 
+    // Story Protocol API data
+    const [storyData, setStoryData] = useState<any>(null);
+    const [storyLoading, setStoryLoading] = useState(false);
+    const [copiedField, setCopiedField] = useState<string | null>(null);
+
     useEffect(() => {
         if (!cid) return;
 
@@ -35,7 +40,11 @@ export default function DesignView({ cid }: { cid: string }) {
             try {
                 const r = await fetch(`/api/story/lookup?cid=${cid}`);
                 const j = await r.json();
-                if (j?.ipId) setIpId(j.ipId);
+                if (j?.ipId) {
+                    setIpId(j.ipId);
+                    // 🔥 Once we have ipId, fetch Story Protocol API data
+                    fetchStoryProtocolData(j.ipId);
+                }
             } catch (e) {
                 console.warn("Story lookup failed", e);
             }
@@ -110,6 +119,27 @@ export default function DesignView({ cid }: { cid: string }) {
         load();
     }, [cid]);
 
+    // 🔥 Fetch Story Protocol API data via check-ip route
+    async function fetchStoryProtocolData(ipIdHex: string) {
+        setStoryLoading(true);
+        try {
+            // Call our backend route which handles the API call to Story Protocol
+            const res = await fetch(`/api/check-ip?ipId=${encodeURIComponent(ipIdHex)}`);
+            const json = await res.json();
+
+            if (json.exists && json.data) {
+                setStoryData(json.data);
+                console.log("Story Protocol Data:", json.data);
+            } else {
+                console.warn("IP Asset not found:", json.error);
+            }
+        } catch (err) {
+            console.error("Story Protocol API fetch failed:", err);
+        } finally {
+            setStoryLoading(false);
+        }
+    }
+
     async function copyCid() {
         try {
             await navigator.clipboard.writeText(cid);
@@ -117,6 +147,17 @@ export default function DesignView({ cid }: { cid: string }) {
             setTimeout(() => setCopied(false), 2000);
         } catch {
             setCopied(false);
+        }
+    }
+
+    // Copy any field to clipboard
+    async function copyToClipboard(text: string, fieldName: string) {
+        try {
+            await navigator.clipboard.writeText(text);
+            setCopiedField(fieldName);
+            setTimeout(() => setCopiedField(null), 2000);
+        } catch (e) {
+            console.error("Copy failed:", e);
         }
     }
 
@@ -185,15 +226,14 @@ export default function DesignView({ cid }: { cid: string }) {
                                 <h1 className="text-2xl font-semibold leading-tight text-gray-900 flex items-center gap-3">
                                     <span>{title}</span>
                                     {ipId && (
-                                        <a
-                                            href={`https://aeneid.storyscan.io/ip-id/${ipId}`}
-                                            target="_blank"
-                                            rel="noreferrer noopener"
-                                            className="text-xs font-normal text-indigo-600 underline break-all"
-                                            title={ipId}
+                                        <button
+                                            onClick={() => copyToClipboard(ipId, "ipId")}
+                                            className="text-xs font-normal text-indigo-600 break-all hover:opacity-75 transition"
+                                            title="Click to copy IP ID"
                                         >
-                                            IP: {`${ipId.slice(0, 10)}…${ipId.slice(-4)}`}
-                                        </a>
+                                            IP ID: {`${ipId.slice(0, 10)}…${ipId.slice(-4)}`}
+                                            {copiedField === "ipId" ? " ✓" : " 📋"}
+                                        </button>
                                     )}
                                 </h1>
                                 {description && <p className="text-sm text-gray-700 mt-1">{description}</p>}
@@ -212,14 +252,14 @@ export default function DesignView({ cid }: { cid: string }) {
 
                             <span className="px-3 py-1 rounded-md text-xs bg-white/70 border border-black/10 text-gray-900">Remixes: {remixCount}</span>
 
-                            {ipId && (
+                            {storyData?.txHash && (
                                 <a
-                                    href={`https://aeneid.storyscan.io/ip-id/${ipId}`}
+                                    href={`https://aeneid.storyscan.io/tx/${storyData.txHash}`}
                                     target="_blank"
                                     rel="noreferrer noopener"
                                     className="px-4 py-2 text-sm rounded-lg border border-black/10 bg-white/70 text-gray-900"
                                 >
-                                    Story Explorer →
+                                    View Tx →
                                 </a>
                             )}
 
@@ -292,17 +332,6 @@ export default function DesignView({ cid }: { cid: string }) {
                                                     <div className="text-xs text-gray-600 break-all">CID: {d.cid ?? (d.ipId ? `childIpId:${d.ipId}` : '—')}</div>
                                                 </div>
                                                 <div className="flex items-center gap-3">
-                                                    {d.ipId && (
-                                                        <a
-                                                            href={`https://aeneid.storyscan.io/ip-id/${d.ipId}`}
-                                                            target="_blank"
-                                                            rel="noreferrer noopener"
-                                                            className="text-xs text-indigo-600 underline"
-                                                            title="Open on StoryScan"
-                                                        >
-                                                            StoryScan
-                                                        </a>
-                                                    )}
                                                     {d.cid ? (
                                                         <a
                                                             href={`https://ipfs.io/ipfs/${d.cid}`}
@@ -358,6 +387,366 @@ export default function DesignView({ cid }: { cid: string }) {
                         </aside>
                     </div>
                 </div>
+
+                {/* 🔥 Story Protocol Data Section */}
+                {storyData && (
+                    <div className="mt-8 rounded-2xl border border-black/10 bg-white/70 overflow-hidden shadow-lg">
+                        {/* Header */}
+                        <div className="px-6 py-4 bg-gradient-to-r from-indigo-50 to-purple-50 border-b border-black/10">
+                            <div className="flex items-center justify-between">
+                                <div>
+                                    <h2 className="text-2xl font-bold text-gray-900">✓ Registered on Story Protocol</h2>
+                                    <p className="text-sm text-gray-600 mt-1">Complete on-chain registration proof & comprehensive metadata</p>
+                                </div>
+                                <div className="text-right">
+                                    <p className="text-xs text-gray-500">Chain ID</p>
+                                    <p className="text-lg font-bold text-indigo-600">{storyData.chainId}</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="p-6 space-y-6">
+                            {/* 1. Core Identity */}
+                            <section>
+                                <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
+                                    <span className="text-2xl">🆔</span>
+                                    Core Identity
+                                </h3>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div className="p-4 bg-indigo-50 border border-indigo-200 rounded-xl">
+                                        <p className="text-xs text-gray-500 font-semibold mb-2">IP ID (Hex Format)</p>
+                                        <p className="text-sm font-mono text-gray-900 break-all bg-white p-2 rounded border border-indigo-100">{storyData.ipId}</p>
+                                        <button
+                                            onClick={() => copyToClipboard(storyData.ipId, "ipId")}
+                                            className="mt-3 w-full text-sm bg-indigo-600 text-white px-3 py-2 rounded-lg hover:bg-indigo-700 transition font-semibold"
+                                        >
+                                            {copiedField === "ipId" ? "✓ Copied" : "Copy IP ID"}
+                                        </button>
+                                    </div>
+
+                                    <div className="p-4 bg-purple-50 border border-purple-200 rounded-xl">
+                                        <p className="text-xs text-gray-500 font-semibold mb-2">Owner Address</p>
+                                        <p className="text-sm font-mono text-gray-900 break-all bg-white p-2 rounded border border-purple-100">{storyData.ownerAddress}</p>
+                                        <button
+                                            onClick={() => copyToClipboard(storyData.ownerAddress, "owner")}
+                                            className="mt-3 w-full text-sm bg-purple-600 text-white px-3 py-2 rounded-lg hover:bg-purple-700 transition font-semibold"
+                                        >
+                                            {copiedField === "owner" ? "✓ Copied" : "Copy Address"}
+                                        </button>
+                                    </div>
+                                </div>
+                            </section>
+
+                            {/* 2. NFT Details */}
+                            <section className="border-t pt-6">
+                                <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
+                                    <span className="text-2xl">🎨</span>
+                                    NFT Details
+                                </h3>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div className="p-4 bg-blue-50 border border-blue-200 rounded-xl">
+                                        <p className="text-xs text-gray-500 font-semibold mb-1">NFT Name</p>
+                                        <p className="text-sm font-semibold text-gray-900">{storyData.name}</p>
+                                    </div>
+
+                                    <div className="p-4 bg-blue-50 border border-blue-200 rounded-xl">
+                                        <p className="text-xs text-gray-500 font-semibold mb-1">Token ID</p>
+                                        <p className="text-sm font-semibold text-gray-900">{storyData.tokenId}</p>
+                                    </div>
+
+                                    <div className="p-4 bg-blue-50 border border-blue-200 rounded-xl md:col-span-2">
+                                        <p className="text-xs text-gray-500 font-semibold mb-1">IPFS URI</p>
+                                        <p className="text-xs font-mono text-gray-900 break-all bg-white p-2 rounded border border-blue-100 mb-2">{storyData.uri}</p>
+                                        <a
+                                            href={`https://ipfs.io/ipfs/${storyData.uri.replace("ipfs://", "")}`}
+                                            target="_blank"
+                                            rel="noreferrer"
+                                            className="text-xs text-blue-600 underline"
+                                        >
+                                            View on IPFS →
+                                        </a>
+                                    </div>
+                                </div>
+                            </section>
+
+                            {/* 3. On-Chain Transaction Proof */}
+                            <section className="border-t pt-6">
+                                <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
+                                    <span className="text-2xl">📜</span>
+                                    On-Chain Proof
+                                </h3>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div className="p-4 bg-gray-50 border border-gray-200 rounded-xl md:col-span-2">
+                                        <p className="text-xs text-gray-500 font-semibold mb-2">Transaction Hash</p>
+                                        <p className="text-xs font-mono text-gray-900 break-all bg-white p-2 rounded border border-gray-100 mb-3">{storyData.txHash}</p>
+                                        <a
+                                            href={`https://aeneid.storyscan.io/tx/${storyData.txHash}`}
+                                            target="_blank"
+                                            rel="noreferrer"
+                                            className="inline-flex items-center gap-2 text-sm bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 transition font-semibold"
+                                        >
+                                            View on StoryScan →
+                                        </a>
+                                    </div>
+
+                                    <div className="p-4 bg-gray-50 border border-gray-200 rounded-xl">
+                                        <p className="text-xs text-gray-500 font-semibold mb-1">Block Number</p>
+                                        <p className="text-2xl font-bold text-gray-900">{storyData.blockNumber}</p>
+                                    </div>
+
+                                    <div className="p-4 bg-gray-50 border border-gray-200 rounded-xl">
+                                        <p className="text-xs text-gray-500 font-semibold mb-1">Log Index</p>
+                                        <p className="text-2xl font-bold text-gray-900">{storyData.logIndex}</p>
+                                    </div>
+
+                                    <div className="p-4 bg-gray-50 border border-gray-200 rounded-xl">
+                                        <p className="text-xs text-gray-500 font-semibold mb-1">Token Contract</p>
+                                        <p className="text-xs font-mono text-gray-900 break-all">{storyData.tokenContract}</p>
+                                    </div>
+
+                                    <div className="p-4 bg-gray-50 border border-gray-200 rounded-xl">
+                                        <p className="text-xs text-gray-500 font-semibold mb-1">Token Type</p>
+                                        <p className="text-sm font-semibold text-gray-900">ERC721</p>
+                                    </div>
+                                </div>
+                            </section>
+
+                            {/* 4. Registration & Timestamps */}
+                            <section className="border-t pt-6">
+                                <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
+                                    <span className="text-2xl">📅</span>
+                                    Registration & Timestamps
+                                </h3>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div className="p-4 bg-green-50 border border-green-200 rounded-xl">
+                                        <p className="text-xs text-gray-500 font-semibold mb-1">Registration Date</p>
+                                        <p className="text-sm font-semibold text-gray-900">
+                                            {new Date(parseInt(storyData.registrationDate) * 1000).toLocaleDateString('en-US', {
+                                                year: 'numeric', month: 'long', day: 'numeric'
+                                            })}
+                                        </p>
+                                        <p className="text-xs text-gray-600 mt-1">
+                                            {new Date(parseInt(storyData.registrationDate) * 1000).toLocaleTimeString()}
+                                        </p>
+                                    </div>
+
+                                    <div className="p-4 bg-green-50 border border-green-200 rounded-xl">
+                                        <p className="text-xs text-gray-500 font-semibold mb-1">Last Updated</p>
+                                        <p className="text-sm font-semibold text-gray-900">
+                                            {new Date(storyData.lastUpdatedAt).toLocaleDateString('en-US', {
+                                                year: 'numeric', month: 'long', day: 'numeric'
+                                            })}
+                                        </p>
+                                        <p className="text-xs text-gray-600 mt-1">
+                                            {new Date(storyData.lastUpdatedAt).toLocaleTimeString()}
+                                        </p>
+                                    </div>
+
+                                    <div className="p-4 bg-green-50 border border-green-200 rounded-xl">
+                                        <p className="text-xs text-gray-500 font-semibold mb-1">Created At</p>
+                                        <p className="text-sm font-semibold text-gray-900">
+                                            {new Date(storyData.createdAt).toLocaleDateString('en-US', {
+                                                year: 'numeric', month: 'long', day: 'numeric'
+                                            })}
+                                        </p>
+                                    </div>
+
+                                    <div className="p-4 bg-green-50 border border-green-200 rounded-xl">
+                                        <p className="text-xs text-gray-500 font-semibold mb-1">IP Registration Status</p>
+                                        <p className="text-sm font-semibold text-green-600">✓ Active</p>
+                                        <p className="text-xs text-gray-600">Registered on chain</p>
+                                    </div>
+                                </div>
+                            </section>
+
+                            {/* 5. IP Lineage & Graph */}
+                            <section className="border-t pt-6">
+                                <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
+                                    <span className="text-2xl">🔗</span>
+                                    IP Lineage & Statistics
+                                </h3>
+                                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                                    <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-xl text-center">
+                                        <p className="text-xs text-gray-500 font-semibold mb-2">Parents</p>
+                                        <p className="text-3xl font-bold text-emerald-600">{storyData.parentsCount}</p>
+                                        <p className="text-xs text-gray-600 mt-1">Original IPs</p>
+                                    </div>
+
+                                    <div className="p-4 bg-cyan-50 border border-cyan-200 rounded-xl text-center">
+                                        <p className="text-xs text-gray-500 font-semibold mb-2">Children</p>
+                                        <p className="text-3xl font-bold text-cyan-600">{storyData.childrenCount}</p>
+                                        <p className="text-xs text-gray-600 mt-1">Remixes</p>
+                                    </div>
+
+                                    <div className="p-4 bg-violet-50 border border-violet-200 rounded-xl text-center">
+                                        <p className="text-xs text-gray-500 font-semibold mb-2">Ancestors</p>
+                                        <p className="text-3xl font-bold text-violet-600">{storyData.ancestorsCount}</p>
+                                        <p className="text-xs text-gray-600 mt-1">All Origins</p>
+                                    </div>
+
+                                    <div className="p-4 bg-amber-50 border border-amber-200 rounded-xl text-center">
+                                        <p className="text-xs text-gray-500 font-semibold mb-2">Descendants</p>
+                                        <p className="text-3xl font-bold text-amber-600">{storyData.descendantsCount}</p>
+                                        <p className="text-xs text-gray-600 mt-1">All Children</p>
+                                    </div>
+                                </div>
+                            </section>
+
+                            {/* 6. Moderation Status */}
+                            <section className="border-t pt-6">
+                                <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
+                                    <span className="text-2xl">🛡️</span>
+                                    Moderation Status
+                                </h3>
+                                <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+                                    {Object.entries(storyData.moderationStatus || {}).map(([key, value]: [string, any]) => (
+                                        <div key={key} className="p-3 bg-gray-50 border border-gray-200 rounded-xl text-center">
+                                            <p className="text-xs font-semibold text-gray-700 capitalize mb-2">{key}</p>
+                                            <span className={`inline-block px-2 py-1 rounded text-xs font-bold ${value === "MISSING_IMAGE" ? "bg-gray-100 text-gray-600" :
+                                                value === "APPROVED" ? "bg-green-100 text-green-700" :
+                                                    "bg-yellow-100 text-yellow-700"
+                                                }`}>
+                                                {value}
+                                            </span>
+                                        </div>
+                                    ))}
+                                </div>
+                            </section>
+
+                            {/* 7. Infringement Checks */}
+                            {storyData.infringementStatus && storyData.infringementStatus.length > 0 && (
+                                <section className="border-t pt-6">
+                                    <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
+                                        <span className="text-2xl">✅</span>
+                                        Infringement Verification
+                                    </h3>
+                                    <div className="space-y-3">
+                                        {storyData.infringementStatus.map((check: any, idx: number) => (
+                                            <div key={idx} className="p-4 bg-green-50 border border-green-200 rounded-xl flex items-center justify-between">
+                                                <div>
+                                                    <p className="text-sm font-semibold text-gray-900">{check.status}</p>
+                                                    <p className="text-xs text-gray-600">
+                                                        {check.providerName ? `Provider: ${check.providerName}` : "Verification Check"}
+                                                    </p>
+                                                    <p className="text-xs text-gray-500 mt-1">
+                                                        Checked: {new Date(check.responseTime).toLocaleDateString()}
+                                                    </p>
+                                                </div>
+                                                <div className="text-right">
+                                                    <span className={`inline-block px-3 py-1 rounded-lg text-sm font-bold ${check.isInfringing ? "bg-red-100 text-red-700" : "bg-green-100 text-green-700"
+                                                        }`}>
+                                                        {check.isInfringing ? "⚠️ Infringing" : "✓ Clear"}
+                                                    </span>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </section>
+                            )}
+
+                            {/* 8. Additional Metadata */}
+                            <section className="border-t pt-6">
+                                <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
+                                    <span className="text-2xl">📋</span>
+                                    Additional Information
+                                </h3>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div className="p-4 bg-slate-50 border border-slate-200 rounded-xl">
+                                        <p className="text-xs text-gray-500 font-semibold mb-1">Is In Group</p>
+                                        <p className="text-sm font-semibold text-gray-900">{storyData.isInGroup ? "Yes" : "No"}</p>
+                                    </div>
+
+                                    <div className="p-4 bg-slate-50 border border-slate-200 rounded-xl">
+                                        <p className="text-xs text-gray-500 font-semibold mb-1">Root IPs</p>
+                                        <p className="text-sm font-semibold text-gray-900">
+                                            {storyData.rootIPs && storyData.rootIPs.length > 0 ? storyData.rootIPs.length : "None"}
+                                        </p>
+                                    </div>
+
+                                    {storyData.title && (
+                                        <div className="p-4 bg-slate-50 border border-slate-200 rounded-xl md:col-span-2">
+                                            <p className="text-xs text-gray-500 font-semibold mb-1">Title</p>
+                                            <p className="text-sm text-gray-900">{storyData.title}</p>
+                                        </div>
+                                    )}
+
+                                    {storyData.description && (
+                                        <div className="p-4 bg-slate-50 border border-slate-200 rounded-xl md:col-span-2">
+                                            <p className="text-xs text-gray-500 font-semibold mb-1">Description</p>
+                                            <p className="text-sm text-gray-900">{storyData.description}</p>
+                                        </div>
+                                    )}
+                                </div>
+                            </section>
+
+                            {/* 9. Raw Metadata from IPFS */}
+                            {storyData.raw?.metadata && (
+                                <section className="border-t pt-6">
+                                    <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
+                                        <span className="text-2xl">🔬</span>
+                                        Raw Metadata (IPFS)
+                                    </h3>
+                                    <div className="p-4 bg-gray-50 border border-gray-200 rounded-xl">
+                                        <pre className="text-xs font-mono text-gray-700 break-all whitespace-pre-wrap overflow-y-auto max-h-64 bg-white p-3 rounded border border-gray-200">
+                                            {JSON.stringify(storyData.raw.metadata, null, 2)}
+                                        </pre>
+                                    </div>
+                                </section>
+                            )}
+
+                            {/* 10. Quick Links & Actions */}
+                            <section className="border-t pt-6">
+                                <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
+                                    <span className="text-2xl">🔗</span>
+                                    Quick Links
+                                </h3>
+                                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                                    <a
+                                        href={`https://aeneid.storyscan.io/tx/${storyData.txHash}`}
+                                        target="_blank"
+                                        rel="noreferrer"
+                                        className="flex items-center justify-center gap-2 px-4 py-3 bg-indigo-600 text-white font-semibold rounded-xl hover:bg-indigo-700 transition"
+                                    >
+                                        <span>📜</span> View Transaction
+                                    </a>
+
+                                    <a
+                                        href={`https://ipfs.io/ipfs/${storyData.uri?.replace("ipfs://", "")}`}
+                                        target="_blank"
+                                        rel="noreferrer"
+                                        className="flex items-center justify-center gap-2 px-4 py-3 bg-purple-600 text-white font-semibold rounded-xl hover:bg-purple-700 transition"
+                                    >
+                                        <span>🌐</span> IPFS Metadata
+                                    </a>
+
+                                    {storyData.nftMetadata?.tokenUri && (
+                                        <a
+                                            href={storyData.nftMetadata.tokenUri}
+                                            target="_blank"
+                                            rel="noreferrer"
+                                            className="flex items-center justify-center gap-2 px-4 py-3 bg-blue-600 text-white font-semibold rounded-xl hover:bg-blue-700 transition"
+                                        >
+                                            <span>🎨</span> NFT URI
+                                        </a>
+                                    )}
+                                </div>
+                            </section>
+                        </div>
+                    </div>
+                )}
+
+                {storyLoading && (
+                    <div className="mt-8 rounded-2xl border border-black/10 bg-white/70 p-6">
+                        <div className="animate-pulse space-y-4">
+                            <div className="h-6 bg-gray-200 rounded w-1/3" />
+                            <div className="h-4 bg-gray-200 rounded w-2/3" />
+                            <div className="grid grid-cols-2 gap-4">
+                                <div className="h-20 bg-gray-200 rounded" />
+                                <div className="h-20 bg-gray-200 rounded" />
+                            </div>
+                        </div>
+                    </div>
+                )}
 
                 {/* Preview modal */}
                 {previewOpen && previewSrc && (
