@@ -7,6 +7,8 @@ export interface IStoryRegistration extends Document {
   txHash?: string | null;
   cidHash?: string | null;
   anchorTxHash?: string | null;
+  // anchoredAt/anchorConfirmedAt capture when the IP was finalized on-chain
+  anchoredAt?: Date | null;
   anchorConfirmedAt?: Date | null;
   createdAt: Date;
 }
@@ -19,6 +21,7 @@ const StoryRegistrationSchema = new Schema<IStoryRegistration>(
     txHash: { type: String, required: false },
     cidHash: { type: String, required: false, index: true },
     anchorTxHash: { type: String, required: false },
+    anchoredAt: { type: Date, required: false },
     anchorConfirmedAt: { type: Date, required: false },
   },
   { timestamps: { createdAt: true, updatedAt: false } }

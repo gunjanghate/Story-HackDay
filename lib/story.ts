@@ -93,32 +93,74 @@ export async function registerDerivativeOnStory({
 
   const remixCidHash = keccak256(toUtf8Bytes(remixCid)) as `0x${string}`;
 
-  // register derivative + SPG mint + PIL flavor commercial remix
+  // register derivative + SPG mint using PIL commercial remix terms
   try {
-    const sdkRes = await client.ipAsset.registerDerivativeIpAsset({
-      parentIpId,
+    const ipAssetClient: any = (client as any).ipAsset;
+    const licenseClient: any = (client as any).license;
+
+    if (!ipAssetClient || typeof ipAssetClient.registerDerivativeIpAsset !== "function") {
+      // Ensure we are using an SDK build that supports derivative registration
+      throw new Error(
+        "Story SDK ipAsset.registerDerivativeIpAsset is missing. Check @story-protocol/core-sdk version and API compatibility."
+      );
+    }
+
+    if (!licenseClient || typeof licenseClient.registerPILTerms !== "function") {
+      // Guard against mismatched SDK versions where license.registerPILTerms moved/changed
+      throw new Error(
+        "Story SDK license.registerPILTerms is missing. Check @story-protocol/core-sdk version and API compatibility."
+      );
+    }
+
+    if (!parentIpId) {
+      // Defensive guard: avoid opaque BigInt(undefined) failures inside viem/contracts
+      throw new Error("parentIpId is required to register a derivative IP asset");
+    }
+
+    let parentIpIdBigInt: bigint;
+    try {
+      // Story RemixHub + some SDK paths expect uint256-compatible ids
+      parentIpIdBigInt = BigInt(parentIpId);
+    } catch {
+      throw new Error(
+        `Invalid parentIpId format for derivative registration: ${parentIpId}. Expected a uint256-compatible string.`
+      );
+    }
+
+    // 1) Ensure we have a PIL licenseTermsId to use for the derivative
+    const pilTerms = PILFlavor.commercialRemix({
+      commercialRevShare: 10,
+      defaultMintingFee: BigInt(0),
+      currency: WIP_TOKEN_ADDRESS,
+    });
+
+    const pilRes = await licenseClient.registerPILTerms({ terms: pilTerms });
+    const licenseTermsId: bigint | undefined = pilRes?.licenseTermsId;
+    if (!licenseTermsId) {
+      throw new Error("Story SDK did not return licenseTermsId for derivative PIL terms");
+    }
+
+    const sdkRes = await ipAssetClient.registerDerivativeIpAsset({
       nft: {
         type: "mint",
         spgNftContract: SPG_NFT_CONTRACT,
         recipient: account.address,
         allowDuplicates: true,
       },
-      licenseTermsData: [
-        {
-          terms: PILFlavor.commercialRemix({
-            commercialRevShare: 10,
-            defaultMintingFee: BigInt(0),
-            currency: WIP_TOKEN_ADDRESS,
-          }),
-        },
-      ],
+      derivData: {
+        parentIpIds: [parentIpIdBigInt],
+        licenseTermsIds: [licenseTermsId],
+        maxMintingFee: BigInt(0),
+        maxRts: 100_000_000,
+        maxRevenueShare: 100,
+      },
       ipMetadata: {
         ipMetadataURI: `ipfs://${remixCid}`,
         ipMetadataHash: remixCidHash,
         nftMetadataURI: `ipfs://${remixCid}`,
         nftMetadataHash: remixCidHash,
       },
-    });
+    } as any);
     const newIpId = sdkRes.ipId;
     const txHash = sdkRes.txHash as `0x${string}` | undefined;
     if (!newIpId || !txHash) {
@@ -126,7 +168,8 @@ export async function registerDerivativeOnStory({
     }
     return { newIpId, txHash };
   } catch (e: any) {
-    const hint = "Ensure parentIpId exists and SDK method registerDerivativeIpAsset matches installed version.";
+    const hint =
+      "Ensure parentIpId exists, is uint256-compatible, and SDK method registerDerivativeIpAsset matches installed @story-protocol/core-sdk version.";
     throw new Error(`Story derivative registration failed: ${e?.message || e}. ${hint}`);
   }
 }

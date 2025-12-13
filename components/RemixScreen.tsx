@@ -45,41 +45,9 @@ export default function RemixScreen({ cid }: { cid: string }) {
             const remixCid = uploadJson.cid as string;
             console.log("[REMIX] Stage 1 SUCCESS: Remix CID from IPFS", { remixCid });
 
-            // Persist CID → Hash mapping server-side (MongoDB) so other clients can resolve
-            try {
-                const cidHash = keccak256(toUtf8Bytes(remixCid)) as `0x${string}`;
-                const payload = {
-                    cid: remixCid,
-                    ipId: null,
-                    cidHash: String(cidHash).toLowerCase(),
-                    anchorTxHash: null,
-                };
-                // Call anchor endpoint to upsert mapping; when chain registration completes server anchor can be updated later
-                const anchorRes = await fetch("/api/story/anchor", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify(payload),
-                });
-
-                if (!anchorRes.ok) {
-                    let bodyText: string;
-                    try {
-                        bodyText = await anchorRes.text();
-                    } catch (readErr) {
-                        bodyText = `<unable to read response body: ${String(readErr)}>`;
-                    }
-                    console.warn("[REMIX] Stage 3: Anchor API returned error", {
-                        status: anchorRes.status,
-                        statusText: anchorRes.statusText,
-                        body: bodyText,
-                    });
-                } else {
-                    console.log("[REMIX] Stage 3: Persisted remix cidHash→cid mapping server-side", { cidHash });
-                }
-            } catch (e) {
-                console.warn("[REMIX] Stage 3: Failed to persist cidHash mapping server-side", e);
-            }
-
+            // Removed the call to the anchor endpoint as ipId is null
+            setMessage("Registering remix on Story Protocol…");
+            console.log("[REMIX] Stage 2: Registering derivative on Story", { originalCid: cid, remixCid });
             setMessage("Registering remix on Story Protocol…");
             console.log("[REMIX] Stage 2: Registering derivative on Story", { originalCid: cid, remixCid });
 
@@ -102,7 +70,7 @@ export default function RemixScreen({ cid }: { cid: string }) {
             const explorerUrl = `https://aeneid.storyscan.io/ip-id/${remixJson.newIpId}`;
             const txUrl = remixJson.txHash ? `https://aeneid.storyscan.io/tx/${remixJson.txHash}` : null;
 
-            // Persist the on-chain registration result (newIpId and txHash) to the server so DB contains mapping for this remix
+            // Persist the on-chain registration result (newIpId and txHash) to the server
             try {
                 const cidHash = keccak256(toUtf8Bytes(remixCid)) as `0x${string}`;
                 const payload = {
@@ -130,7 +98,7 @@ export default function RemixScreen({ cid }: { cid: string }) {
                 `Redirecting…`
             );
 
-            // Redirect after short celebration 😎
+            // Redirect after short celebration
             setTimeout(() => {
                 router.push(`/design/${remixCid}?remixed=true`);
             }, 1800);
@@ -145,52 +113,57 @@ export default function RemixScreen({ cid }: { cid: string }) {
     }
 
     return (
-        <main className="gradient-bg min-h-screen py-32 px-6">
-            <div className="max-w-xl mx-auto space-y-6">
-                <div className="text-center space-y-2">
-                    <h2 className="text-3xl font-bold tracking-tight bg-clip-text text-transparent bg-linear-to-r from-sky-600 to-indigo-600">Remix Design</h2>
-                    <p className="text-sm text-gray-700">Original CID: <span className="font-mono text-gray-800">{cid}</span></p>
+        <main className="gradient-bg min-h-screen py-24 px-6">
+            <div className="max-w-2xl mx-auto">
+                <div className="text-center mb-8">
+                    <h2 className="text-4xl md:text-5xl font-extrabold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-sky-500 to-indigo-600 mb-3">
+                        Remix Design
+                    </h2>
+                    <p className="text-sm text-gray-600">Original CID: <span className="font-mono text-gray-800">{cid}</span></p>
                 </div>
-                <form onSubmit={remixDesign} className="space-y-6 bg-white/70 backdrop-blur-sm rounded-2xl p-8 shadow-sm border border-white/40">
+
+                <form onSubmit={remixDesign} className="space-y-6 bg-white border border-gray-100 rounded-2xl p-8 shadow-lg">
                     <div className="space-y-2">
-                        <label className="text-sm font-medium text-gray-800" htmlFor="title">Remix Title *</label>
+                        <label className="text-sm font-semibold text-gray-800" htmlFor="title">Remix Title *</label>
                         <input
                             id="title"
-                            className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 outline-none"
+                            className="w-full rounded-lg border border-gray-200 px-4 py-3 text-base text-gray-900 placeholder-gray-400 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 outline-none"
                             placeholder="e.g. Dark Theme Variant"
                             onChange={(e) => setTitle(e.target.value)}
                         />
                     </div>
                     <div className="space-y-2">
-                        <label className="text-sm font-medium text-gray-800" htmlFor="figmaUrl">Figma URL (optional)</label>
+                        <label className="text-sm font-semibold text-gray-800" htmlFor="figmaUrl">Figma URL (optional)</label>
                         <input
                             id="figmaUrl"
-                            className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 outline-none"
+                            className="w-full rounded-lg border border-gray-200 px-4 py-3 text-base text-gray-900 placeholder-gray-400 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 outline-none"
                             placeholder="https://www.figma.com/file/..."
                             onChange={(e) => setFigmaUrl(e.target.value)}
                         />
                     </div>
                     <div className="space-y-2">
-                        <label className="text-sm font-medium text-gray-800" htmlFor="file">Upload .fig File</label>
-                        <input
-                            id="file"
-                            type="file"
-                            accept=".fig"
-                            onChange={(e) => setFile(e.target.files?.[0] || null)}
-                            className="w-full text-sm file:mr-3 file:rounded-md file:border-0 file:bg-indigo-600 file:px-4 file:py-2 file:text-white hover:file:bg-indigo-500"
-                        />
-                        <p className="text-xs text-gray-500">Optional: attach a .fig to override remote Figma asset retrieval.</p>
+                        <label className="text-sm font-semibold text-gray-800" htmlFor="file">Upload .fig File</label>
+                        <div className="flex items-center gap-3">
+                            <input
+                                id="file"
+                                type="file"
+                                accept=".fig"
+                                onChange={(e) => setFile(e.target.files?.[0] || null)}
+                                className="text-sm text-gray-700"
+                            />
+                            <span className="text-xs text-gray-500">Optional: attach a .fig to override remote Figma asset retrieval.</span>
+                        </div>
                     </div>
                     <div>
                         <button
                             disabled={loading}
-                            className="w-full inline-flex items-center justify-center rounded-lg bg-linear-to-r from-sky-600 to-indigo-600 px-6 py-3 text-sm font-medium text-white shadow-sm transition disabled:opacity-50 hover:from-sky-500 hover:to-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-300"
+                            className="w-full inline-flex items-center justify-center rounded-lg bg-gradient-to-r from-sky-600 to-indigo-600 px-6 py-3 text-base font-semibold text-white shadow-md transition disabled:opacity-60 hover:brightness-95 focus:outline-none focus:ring-2 focus:ring-indigo-200"
                         >
                             {loading ? "Processing…" : "Remix & Publish"}
                         </button>
                     </div>
                     {message && (
-                        <pre className="text-sm whitespace-pre-line rounded-md border border-indigo-100 bg-indigo-50 px-4 py-3 text-indigo-700">
+                        <pre className="text-sm whitespace-pre-line rounded-md border border-gray-100 bg-gray-50 px-4 py-3 text-gray-800">
                             {message}
                         </pre>
                     )}

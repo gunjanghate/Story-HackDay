@@ -2,6 +2,9 @@ import { NextResponse } from "next/server";
 import { connectToDB } from "@/lib/db";
 import StoryRegistration from "@/lib/models/StoryRegistration";
 
+// This endpoint is responsible for persisting the final on-chain anchoring
+// result for an IP (original or derivative). Registration itself happens
+// via the Story SDK, and this endpoint makes that state durable in Mongo.
 export async function POST(req: Request) {
   try {
     const { cid, ipId, cidHash, anchorTxHash } = await req.json();
@@ -19,12 +22,17 @@ export async function POST(req: Request) {
 
     const update: any = {
       cid,
+      // Always persist ipId as string to avoid bigint/JSON issues
       ipId: String(ipId),
     };
     if (normalizedCidHash) update.cidHash = normalizedCidHash;
     if (anchorTxHash) {
-      update.anchorTxHash = String(anchorTxHash);
-      update.anchorConfirmedAt = new Date();
+      const anchorHashStr = String(anchorTxHash);
+      update.anchorTxHash = anchorHashStr;
+      // anchoredAt marks when the IP was finalized on-chain
+      const now = new Date();
+      update.anchoredAt = now;
+      update.anchorConfirmedAt = now;
     }
 
     // Upsert: create if missing, or update existing registration

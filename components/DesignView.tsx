@@ -3,6 +3,77 @@ import Image from "next/image";
 import { useEffect, useState } from "react";
 import imgg from "@/public/ippy.png";
 
+/* Small inline icons to avoid adding new dependencies */
+const IconWrapper = ({ children, bg = "bg-indigo-100" }: { children: any; bg?: string }) => (
+    <div className={`w-9 h-9 rounded-full flex items-center justify-center ${bg}`}>{children}</div>
+);
+
+const CheckBadge = ({ className = "w-5 h-5 text-indigo-600" }: { className?: string }) => (
+    <svg viewBox="0 0 24 24" fill="none" className={className} xmlns="http://www.w3.org/2000/svg">
+        <circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="1.5" />
+        <path d="M8 12.5l1.8 1.8L16 9" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+);
+
+const IdIcon = ({ className = "w-5 h-5 text-indigo-600" }: { className?: string }) => (
+    <svg viewBox="0 0 24 24" className={className} fill="none" xmlns="http://www.w3.org/2000/svg">
+        <rect x="3" y="5" width="18" height="14" rx="2" stroke="currentColor" strokeWidth="1.5" />
+        <circle cx="8.5" cy="11" r="1.4" fill="currentColor" />
+        <path d="M12 9h6" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
+        <path d="M12 13h6" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
+    </svg>
+);
+
+const ArtIcon = ({ className = "w-5 h-5 text-indigo-600" }: { className?: string }) => (
+    <svg viewBox="0 0 24 24" className={className} fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M3 21c4-2 6-6 6-10 0-4 4-8 8-8 0 0-4 6-2 8s4 2 4 6c0 2-2 4-6 4-4 0-6 0-10 0z" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+);
+
+const DocIcon = ({ className = "w-5 h-5 text-indigo-600" }: { className?: string }) => (
+    <svg viewBox="0 0 24 24" className={className} fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
+        <path d="M14 2v6h6" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+);
+
+const CalendarIcon = ({ className = "w-5 h-5 text-indigo-600" }: { className?: string }) => (
+    <svg viewBox="0 0 24 24" className={className} fill="none" xmlns="http://www.w3.org/2000/svg">
+        <rect x="3" y="5" width="18" height="16" rx="2" stroke="currentColor" strokeWidth="1.4" />
+        <path d="M16 3v4M8 3v4M3 11h18" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+);
+
+const ChainIcon = ({ className = "w-5 h-5 text-indigo-600" }: { className?: string }) => (
+    <svg viewBox="0 0 24 24" className={className} fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M10 14a3 3 0 0 1 0-4l1-1" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
+        <path d="M14 10a3 3 0 0 1 0 4l-1 1" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
+        <path d="M7 7l10 10" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
+    </svg>
+);
+
+const ShieldIcon = ({ className = "w-5 h-5 text-indigo-600" }: { className?: string }) => (
+    <svg viewBox="0 0 24 24" className={className} fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M12 2l7 4v6c0 5-4 9-7 10-3-1-7-5-7-10V6l7-4z" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
+        <path d="M9.5 12.5l1.8 1.8L15 11" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+);
+
+const ExclamationIcon = ({ className = "w-5 h-5 text-red-600" }: { className?: string }) => (
+    <svg viewBox="0 0 24 24" className={className} fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M12 8v5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+        <path d="M12 17h.01" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+        <circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="1.2" />
+    </svg>
+);
+
+const ClipboardIcon = ({ className = "w-5 h-5 text-indigo-600" }: { className?: string }) => (
+    <svg viewBox="0 0 24 24" className={className} fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M16 4h-2.2a1 1 0 0 0-.9.6L12 6H8a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2z" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
+        <path d="M9 2h6" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+);
+
 export default function DesignView({ cid }: { cid: string }) {
     const [metadata, setMetadata] = useState<any>(null);
     const [loading, setLoading] = useState(true);
@@ -212,15 +283,7 @@ export default function DesignView({ cid }: { cid: string }) {
                     {/* Header */}
                     <div className="px-6 py-6 flex items-center justify-between gap-4">
                         <div className="flex items-center gap-4">
-                            <div
-                                className="w-16 h-16 rounded-lg flex items-center justify-center text-lg font-bold text-white"
-                                style={{
-                                    background: "linear-gradient(135deg,#6366F1 0%,#EC4899 100%)",
-                                    boxShadow: "0 6px 20px rgba(99,102,241,0.12)",
-                                }}
-                            >
-                                {(title[0] || "D").toUpperCase()}
-                            </div>
+                         
 
                             <div>
                                 <h1 className="text-2xl font-semibold leading-tight text-gray-900 flex items-center gap-3">
@@ -232,7 +295,15 @@ export default function DesignView({ cid }: { cid: string }) {
                                             title="Click to copy IP ID"
                                         >
                                             IP ID: {`${ipId.slice(0, 10)}…${ipId.slice(-4)}`}
-                                            {copiedField === "ipId" ? " ✓" : " 📋"}
+                                            {copiedField === "ipId" ? (
+                                                <span className="ml-2 inline-flex items-center gap-2 text-sm text-green-600">
+                                                    <CheckBadge className="w-4 h-4 text-green-600" />
+                                                </span>
+                                            ) : (
+                                                <span className="ml-2 inline-flex items-center gap-2 text-sm text-gray-400">
+                                                    <ClipboardIcon className="w-4 h-4 text-gray-400" />
+                                                </span>
+                                            )}
                                         </button>
                                     )}
                                 </h1>
@@ -395,7 +466,10 @@ export default function DesignView({ cid }: { cid: string }) {
                         <div className="px-6 py-4 bg-gradient-to-r from-indigo-50 to-purple-50 border-b border-black/10">
                             <div className="flex items-center justify-between">
                                 <div>
-                                    <h2 className="text-2xl font-bold text-gray-900">✓ Registered on Story Protocol</h2>
+                                    <h2 className="text-2xl font-bold text-gray-900 flex items-center gap-3">
+                                        <IconWrapper bg="bg-green-100"><CheckBadge /></IconWrapper>
+                                        <span>Registered on Story Protocol</span>
+                                    </h2>
                                     <p className="text-sm text-gray-600 mt-1">Complete on-chain registration proof & comprehensive metadata</p>
                                 </div>
                                 <div className="text-right">
@@ -408,8 +482,8 @@ export default function DesignView({ cid }: { cid: string }) {
                         <div className="p-6 space-y-6">
                             {/* 1. Core Identity */}
                             <section>
-                                <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
-                                    <span className="text-2xl">🆔</span>
+                                <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-3">
+                                    <IconWrapper bg="bg-indigo-100"><IdIcon /></IconWrapper>
                                     Core Identity
                                 </h3>
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -420,7 +494,17 @@ export default function DesignView({ cid }: { cid: string }) {
                                             onClick={() => copyToClipboard(storyData.ipId, "ipId")}
                                             className="mt-3 w-full text-sm bg-indigo-600 text-white px-3 py-2 rounded-lg hover:bg-indigo-700 transition font-semibold"
                                         >
-                                            {copiedField === "ipId" ? "✓ Copied" : "Copy IP ID"}
+                                            {copiedField === "ipId" ? (
+                                                <span className="inline-flex items-center gap-2 justify-center">
+                                                    <CheckBadge className="w-4 h-4 text-white" />
+                                                    <span>Copied</span>
+                                                </span>
+                                            ) : (
+                                                <span className="inline-flex items-center gap-2 justify-center">
+                                                    <ClipboardIcon className="w-4 h-4 text-white" />
+                                                    <span>Copy IP ID</span>
+                                                </span>
+                                            )}
                                         </button>
                                     </div>
 
@@ -431,7 +515,17 @@ export default function DesignView({ cid }: { cid: string }) {
                                             onClick={() => copyToClipboard(storyData.ownerAddress, "owner")}
                                             className="mt-3 w-full text-sm bg-purple-600 text-white px-3 py-2 rounded-lg hover:bg-purple-700 transition font-semibold"
                                         >
-                                            {copiedField === "owner" ? "✓ Copied" : "Copy Address"}
+                                            {copiedField === "owner" ? (
+                                                <span className="inline-flex items-center gap-2 justify-center">
+                                                    <CheckBadge className="w-4 h-4 text-white" />
+                                                    <span>Copied</span>
+                                                </span>
+                                            ) : (
+                                                <span className="inline-flex items-center gap-2 justify-center">
+                                                    <ClipboardIcon className="w-4 h-4 text-white" />
+                                                    <span>Copy Address</span>
+                                                </span>
+                                            )}
                                         </button>
                                     </div>
                                 </div>
@@ -439,8 +533,8 @@ export default function DesignView({ cid }: { cid: string }) {
 
                             {/* 2. NFT Details */}
                             <section className="border-t pt-6">
-                                <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
-                                    <span className="text-2xl">🎨</span>
+                                <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-3">
+                                    <IconWrapper bg="bg-sky-100"><ArtIcon /></IconWrapper>
                                     NFT Details
                                 </h3>
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -471,8 +565,8 @@ export default function DesignView({ cid }: { cid: string }) {
 
                             {/* 3. On-Chain Transaction Proof */}
                             <section className="border-t pt-6">
-                                <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
-                                    <span className="text-2xl">📜</span>
+                                <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-3">
+                                    <IconWrapper bg="bg-indigo-100"><DocIcon /></IconWrapper>
                                     On-Chain Proof
                                 </h3>
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -513,8 +607,8 @@ export default function DesignView({ cid }: { cid: string }) {
 
                             {/* 4. Registration & Timestamps */}
                             <section className="border-t pt-6">
-                                <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
-                                    <span className="text-2xl">📅</span>
+                                <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-3">
+                                    <IconWrapper bg="bg-emerald-100"><CalendarIcon /></IconWrapper>
                                     Registration & Timestamps
                                 </h3>
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -553,7 +647,9 @@ export default function DesignView({ cid }: { cid: string }) {
 
                                     <div className="p-4 bg-green-50 border border-green-200 rounded-xl">
                                         <p className="text-xs text-gray-500 font-semibold mb-1">IP Registration Status</p>
-                                        <p className="text-sm font-semibold text-green-600">✓ Active</p>
+                                        <p className="text-sm font-semibold text-green-600 inline-flex items-center gap-2">
+                                            <CheckBadge className="w-4 h-4 text-green-600" /> Active
+                                        </p>
                                         <p className="text-xs text-gray-600">Registered on chain</p>
                                     </div>
                                 </div>
@@ -561,8 +657,8 @@ export default function DesignView({ cid }: { cid: string }) {
 
                             {/* 5. IP Lineage & Graph */}
                             <section className="border-t pt-6">
-                                <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
-                                    <span className="text-2xl">🔗</span>
+                                <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-3">
+                                    <IconWrapper bg="bg-cyan-100"><ChainIcon /></IconWrapper>
                                     IP Lineage & Statistics
                                 </h3>
                                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -594,8 +690,8 @@ export default function DesignView({ cid }: { cid: string }) {
 
                             {/* 6. Moderation Status */}
                             <section className="border-t pt-6">
-                                <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
-                                    <span className="text-2xl">🛡️</span>
+                                <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-3">
+                                    <IconWrapper bg="bg-purple-100"><ShieldIcon /></IconWrapper>
                                     Moderation Status
                                 </h3>
                                 <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
@@ -616,8 +712,8 @@ export default function DesignView({ cid }: { cid: string }) {
                             {/* 7. Infringement Checks */}
                             {storyData.infringementStatus && storyData.infringementStatus.length > 0 && (
                                 <section className="border-t pt-6">
-                                    <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
-                                        <span className="text-2xl">✅</span>
+                                    <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-3">
+                                        <IconWrapper bg="bg-rose-100"><ExclamationIcon /></IconWrapper>
                                         Infringement Verification
                                     </h3>
                                     <div className="space-y-3">
@@ -633,9 +729,11 @@ export default function DesignView({ cid }: { cid: string }) {
                                                     </p>
                                                 </div>
                                                 <div className="text-right">
-                                                    <span className={`inline-block px-3 py-1 rounded-lg text-sm font-bold ${check.isInfringing ? "bg-red-100 text-red-700" : "bg-green-100 text-green-700"
-                                                        }`}>
-                                                        {check.isInfringing ? "⚠️ Infringing" : "✓ Clear"}
+                                                    <span className={`inline-flex items-center gap-2 px-3 py-1 rounded-lg text-sm font-bold ${check.isInfringing ? "bg-red-100 text-red-700" : "bg-green-100 text-green-700"}`}>
+                                                        <span className="flex items-center">
+                                                            {check.isInfringing ? <ExclamationIcon className="w-4 h-4 text-red-700" /> : <CheckBadge className="w-4 h-4 text-green-700" />}
+                                                        </span>
+                                                        {check.isInfringing ? "Infringing" : "Clear"}
                                                     </span>
                                                 </div>
                                             </div>
@@ -646,8 +744,8 @@ export default function DesignView({ cid }: { cid: string }) {
 
                             {/* 8. Additional Metadata */}
                             <section className="border-t pt-6">
-                                <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
-                                    <span className="text-2xl">📋</span>
+                                <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-3">
+                                    <IconWrapper bg="bg-slate-100"><ClipboardIcon /></IconWrapper>
                                     Additional Information
                                 </h3>
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -682,8 +780,8 @@ export default function DesignView({ cid }: { cid: string }) {
                             {/* 9. Raw Metadata from IPFS */}
                             {storyData.raw?.metadata && (
                                 <section className="border-t pt-6">
-                                    <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
-                                        <span className="text-2xl">🔬</span>
+                                    <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-3">
+                                        <IconWrapper bg="bg-amber-100"><DocIcon /></IconWrapper>
                                         Raw Metadata (IPFS)
                                     </h3>
                                     <div className="p-4 bg-gray-50 border border-gray-200 rounded-xl">
@@ -696,8 +794,8 @@ export default function DesignView({ cid }: { cid: string }) {
 
                             {/* 10. Quick Links & Actions */}
                             <section className="border-t pt-6">
-                                <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
-                                    <span className="text-2xl">🔗</span>
+                                <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-3">
+                                    <IconWrapper bg="bg-indigo-100"><ChainIcon /></IconWrapper>
                                     Quick Links
                                 </h3>
                                 <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
@@ -707,7 +805,8 @@ export default function DesignView({ cid }: { cid: string }) {
                                         rel="noreferrer"
                                         className="flex items-center justify-center gap-2 px-4 py-3 bg-indigo-600 text-white font-semibold rounded-xl hover:bg-indigo-700 transition"
                                     >
-                                        <span>📜</span> View Transaction
+                                        <IconWrapper bg="bg-indigo-800"><DocIcon className="w-4 h-4 text-white" /></IconWrapper>
+                                        <span>View Transaction</span>
                                     </a>
 
                                     <a
@@ -716,7 +815,8 @@ export default function DesignView({ cid }: { cid: string }) {
                                         rel="noreferrer"
                                         className="flex items-center justify-center gap-2 px-4 py-3 bg-purple-600 text-white font-semibold rounded-xl hover:bg-purple-700 transition"
                                     >
-                                        <span>🌐</span> IPFS Metadata
+                                        <IconWrapper bg="bg-white/10"><DocIcon className="w-4 h-4 text-white" /></IconWrapper>
+                                        <span>IPFS Metadata</span>
                                     </a>
 
                                     {storyData.nftMetadata?.tokenUri && (
@@ -726,7 +826,8 @@ export default function DesignView({ cid }: { cid: string }) {
                                             rel="noreferrer"
                                             className="flex items-center justify-center gap-2 px-4 py-3 bg-blue-600 text-white font-semibold rounded-xl hover:bg-blue-700 transition"
                                         >
-                                            <span>🎨</span> NFT URI
+                                            <IconWrapper bg="bg-white/10"><ArtIcon className="w-4 h-4 text-white" /></IconWrapper>
+                                            <span>NFT URI</span>
                                         </a>
                                     )}
                                 </div>
